@@ -1,84 +1,111 @@
 # YouTube Trials
 
-A minimal server-side fal.ai integration starter for image, video and other generative-media workflows.
+A server-side fal.ai image-to-video generation API for YouTube Shorts workflows.
 
 ## Requirements
 
 - Node.js 22.23.4 or newer
 - npm
-- A fal.ai API key
+- A fal.ai account with API credits
 
 ## Setup
 
-1. Install dependencies:
+1. Clone this repository and install dependencies:
 
    ```bash
    npm install
    ```
 
 2. Copy `.env.example` to `.env`.
-3. Set `FAL_KEY` to an API key from your fal.ai account.
-4. Add the exact model endpoint IDs you intend to use to `FAL_ALLOWED_ENDPOINTS`, separated by commas.
-5. Set `ALLOWED_ORIGIN` to the exact origin of your frontend.
-6. Start the API:
+3. Add your fal.ai key to `FAL_KEY`. Never commit this file.
+4. Keep the default model configuration initially:
+   - Image: `fal-ai/flux/schnell`
+   - Video: `fal-ai/wan-i2v`
+5. Start the API:
 
    ```bash
+   npm run check
    npm run dev
    ```
 
-The server reads `.env` through Node's `--env-file` option only if you add it to the start command, or you can export the variables in your shell / hosting environment. For local development, use:
+6. Verify the server at `http://localhost:3000/health`. The response should show `falConfigured: true` and `pipelineConfigured: true`.
 
-   ```bash
-   node --env-file=.env --watch src/server.js
-   ```
+## Automated image-to-video pipeline
 
-For production:
+### Submit a job
 
-   ```bash
-   node --env-file=.env src/server.js
-   ```
+`POST /api/pipelines/image-to-video`
 
-## API
-
-### Health check
-
-`GET /health`
-
-Returns server status and whether the fal.ai key is configured. It never returns the key.
-
-### Generate media
-
-`POST /api/generate`
-
-Example request:
+Example:
 
 ```json
 {
-  "endpointId": "fal-ai/your-selected-model",
-  "input": {
-    "prompt": "A colourful cinematic 2D cartoon scene"
-  }
+  "imagePrompt": "A friendly blue cartoon creature in a magical forest, polished 2D animation style, portrait composition",
+  "motionPrompt": "The creature waves, smiles and takes two steps forward. Keep its appearance consistent.",
+  "resolution": "480p",
+  "aspectRatio": "9:16"
 }
 ```
 
-The endpoint ID must exactly match one of the entries in `FAL_ALLOWED_ENDPOINTS`. The `input` object must follow the schema published on that model's fal.ai page. The server uses `fal.subscribe`, which submits the job through fal's queue and waits for its result.
+The API responds with HTTP 202 and a `jobId` plus `statusUrl`. It generates the image first, passes the returned HTTPS image URL to the video model, then stores the final video URL in the job status.
 
-## Security
+### Check job status
 
-- Keep `FAL_KEY` on the server. Never add it to browser code or commit a real `.env` file.
-- `.env` is ignored by Git.
-- Restrict model endpoint IDs with `FAL_ALLOWED_ENDPOINTS`.
-- Configure `ALLOWED_ORIGIN` to the exact frontend origin.
-- The API includes basic request rate limiting, JSON size limits and security headers.
-- Before public deployment, add user authentication and per-user quotas. CORS is not authentication.
-- Review provider pricing and each model's input/output limits before enabling it.
+`GET /api/pipelines/{jobId}`
 
-## Current scope and next steps
+Possible states:
 
-This repository is an API foundation, not yet a complete Shorts production application. The next implementation phase should select the image and video models, define their input schemas, then add job persistence, progress polling, asset storage and a user interface.
+- `queued`: accepted by the API.
+- `processing` with stage `image_generation`: image is being generated.
+- `processing` with stage `video_generation`: image is ready and video generation is running.
+- `completed`: both outputs are available as `imageUrl` and `videoUrl`.
+- `failed`: the pipeline stopped. Check server logs and fal.ai account/model configuration.
 
-## References
+### Run the end-to-end test
 
-- [fal.ai documentation](https://fal.ai/docs)
-- [fal JavaScript client](https://github.com/fal-ai/fal-js)
-- [fal JavaScript client README](https://github.com/fal-ai/fal-js/blob/main/libs/client/README.md)
+With the server running in one terminal, run this in another:
+
+```bash
+npm run test:e2e
+```
+
+The script submits a sample prompt, polls the job every 3 seconds for up to 15 minutes, and prints the image and video URLs. Optional environment variables: `API_BASE_URL`, `IMAGE_PROMPT`, `MOTION_PROMPT`, and `VIDEO_RESOLUTION`.
+
+PowerShell alternative:
+
+```powershell
+$env:VIDEO_RESOLUTION = "480p"
+npm run test:e2e
+```
+
+## Individual model endpoint
+
+The existing `POST /api/generate` endpoint remains available for isolated model tests. It accepts an allowlisted `endpointId` and a model-specific `input` object.
+
+## Configuration
+
+| Variable | Purpose |
+|---|---|
+| `FAL_KEY` | Server-side fal.ai API key |
+| `FAL_ALLOWED_ENDPOINTS` | Comma-separated allowlist of model endpoint IDs |
+| `PIPELINE_IMAGE_ENDPOINT` | Image model endpoint |
+| `PIPELINE_VIDEO_ENDPOINT` | Image-to-video model endpoint |
+| `PORT` | API port, default 3000 |
+| `ALLOWED_ORIGIN` | Comma-separated exact frontend origins |
+
+Both pipeline model IDs must also appear in `FAL_ALLOWED_ENDPOINTS`.
+
+## Security and operational limitations
+
+- Keep `FAL_KEY` server-side. Never expose it in browser code or commit a real `.env` file.
+- The API includes Helmet, CORS restrictions, request rate limiting and JSON size limits. CORS is not authentication.
+- Add authentication and per-user quotas before exposing this API publicly.
+- Pipeline job state is currently stored in process memory, retained for up to one hour, and limited to 100 jobs. A server restart clears active jobs. Add a persistent database and durable worker before production use.
+- fal.ai output URLs are provider-hosted URLs. Copy important outputs to durable object storage if they must be retained.
+- Generation costs depend on model pricing, resolution and retries. Start with 480p and monitor usage in your fal.ai dashboard.
+
+## Model references
+
+- [FLUX.1 Schnell API schema](https://fal.ai/models/fal-ai/flux/schnell/api)
+- [WAN 2.1 Image-to-Video API schema](https://fal.ai/models/fal-ai/wan-i2v/api)
+- [fal JavaScript client queue documentation](https://fal-ai.github.io/fal-js/reference/interfaces/QueueClient.html)
