@@ -28,7 +28,7 @@ console.log(`Job ${job.jobId} submitted. Initial status: ${job.status}`);
 const deadline = Date.now() + 15 * 60 * 1000;
 let latest = job;
 while (Date.now() < deadline) {
-  await new Promise((resolve) => setTimeout(resolve, 3000));
+  await new Promise((resolve) => setTimeout(resolve, 5000));
   latest = await requestJson(`${baseUrl}${job.statusUrl}`);
   console.log(`Status: ${latest.status}, stage: ${latest.stage}`);
   if (latest.status === "completed") {
