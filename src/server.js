@@ -71,13 +71,13 @@ function updateJob(job, updates) {
   Object.assign(job, updates, { updatedAt: new Date().toISOString() });
 }
 
-async function runImageToVideoPipeline(job, { imagePrompt, motionPrompt, resolution, aspectRatio }) {
+async function runImageToVideoPipeline(job, { imagePrompt, motionPrompt, resolution, aspectRatio }) {\n  const imageSize = aspectRatio === "9:16" ? "portrait_16_9" : aspectRatio === "16:9" ? "landscape_16_9" : "square_hd";
   try {
     updateJob(job, { status: "processing", stage: "image_generation" });
     const imageResult = await fal.subscribe(imageEndpoint, {
       input: {
         prompt: imagePrompt,
-        image_size: "portrait_16_9",
+        image_size: imageSize,
         num_inference_steps: 4,
         num_images: 1,
         output_format: "jpeg",
