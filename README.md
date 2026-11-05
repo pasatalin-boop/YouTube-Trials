@@ -69,7 +69,7 @@ With the server running in one terminal, run this in another:
 npm run test:e2e
 ```
 
-The script submits a sample prompt, polls the job every 3 seconds for up to 15 minutes, and prints the image and video URLs. Optional environment variables: `API_BASE_URL`, `IMAGE_PROMPT`, `MOTION_PROMPT`, and `VIDEO_RESOLUTION`.
+The script submits a sample prompt, polls the job every 5 seconds for up to 15 minutes, and prints the image and video URLs. Optional environment variables: `API_BASE_URL`, `IMAGE_PROMPT`, `MOTION_PROMPT`, and `VIDEO_RESOLUTION`.
 
 PowerShell alternative:
 
